@@ -1,21 +1,3 @@
-"""
-Author         : Jie Li, Innovision IP Ltd and School of Mathematics, Statistics and Actuarial Science, University of Kent.
-Date           : 2024-01-12 23:33:13
-Last Revision  : 2024-01-12 23:33:14
-Last Author    : Jie Li
-File Path      : /KTP-Mini-Project/statistics/Python/core_utilities.py
-Description    :
-
-
-
-
-
-
-
-
-Copyright (c) 2024, Jie Li, jl725@kent.ac.uk
-All Rights Reserved.
-"""
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
