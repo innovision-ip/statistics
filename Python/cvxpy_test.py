@@ -1,22 +1,3 @@
-"""
-Author         : Jie Li, Innovision IP Ltd and School of Mathematics, Statistics and Actuarial Science, University of Kent.
-Date           : 2024-01-12 23:36:36
-Last Revision  : 2024-01-12 23:37:08
-Last Author    : Jie Li
-File Path      : /KTP-Mini-Project/statistics/Python/cvxpy_test.py
-Description    :
-
-
-
-
-
-
-
-
-Copyright (c) 2024, Jie Li, jl725@kent.ac.uk
-All Rights Reserved.
-"""
-
 # %%
 from cProfile import Profile
 from pstats import SortKey, Stats

@@ -30,8 +30,11 @@ import h5py
 # import multiprocessing # does not work on Mac OS
 import joblib
 import mne
+import nibabel as nib
 import numpy as np
 from joblib import Parallel, delayed, wrap_non_picklable_objects
+from mne.beamformer import apply_lcmv_cov
+from nilearn import plotting
 from sklearn.decomposition import PCA
 
 # should not need editing below here
@@ -622,25 +625,29 @@ def whiten(covariance_matrix, input_matrix):
     return np.dot(principal_components, input_matrix)
 
 
-#################
-# to be put in later for single point extraction
-"""
-    # Reduce down to the ROI form
-    timeseries = best_orientation(timeseries, no_vertices)
+def gen_lcmv(active_cov, baseline_cov, filters):
+    stc_base = apply_lcmv_cov(baseline_cov, filters)
+    stc_act = apply_lcmv_cov(active_cov, filters)
+    stc_act /= stc_base
+    return stc_act
 
-    stc = mne.VolSourceEstimate(timeseries, vertices, 0, 1, subject_id)
 
-    timeseries_areas = None
+def rescale_and_find_cut_coords(img, scale_factor=1e2, threshold_offset=0.5):
+    # Get the image data as a NumPy array
+    data = img.get_fdata()
 
-    # For each area label
-    for labelnum, label in enumerate(area_labels):
-        ad = mne.extract_label_time_course(stc, label,
-                                            fwd['src'], mode='mean')
+    # Rescale the data
+    rescaled_data = data * scale_factor
 
-        # We now have enough information to size the array
-        if timeseries_areas is None:
-            no_timepts = ad.shape[1]
-            timeseries_areas = np.zeros((no_labels, no_timepts))
+    # Create a new NIfTI image with the rescaled data and the same affine as the original image
+    rescaled_img = nib.Nifti1Image(rescaled_data, img.affine)
 
-        timeseries_areas[labelnum, :] = ad[0, :]
-"""
+    # Find the maximum value in the rescaled data
+    z_max = np.max(rescaled_data)
+
+    # Find the cut coordinates
+    coords = plotting.find_xyz_cut_coords(
+        rescaled_img, activation_threshold=z_max - threshold_offset
+    )
+
+    return rescaled_img, coords, z_max

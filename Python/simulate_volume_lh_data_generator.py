@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Edited on Sun Feb 16 12:07:35 2020
 
@@ -13,7 +11,7 @@ I did not use the parser. Instead, I directly assign the variable.
 It can do this for any of the subjects in the database
 
 """
-# standard imports
+# %% standard imports
 import argparse
 from pathlib import Path
 
@@ -22,7 +20,7 @@ import core_utilities as core
 import mne
 import numpy as np
 
-# set up
+# %% set up
 mne.utils.use_log_level("error")
 
 # get the arguments from the command line
@@ -32,19 +30,16 @@ parser.add_argument("-s", "--subject", dest="test_subject", help="Subject ID")
 parser.add_argument("-b", "--band", dest="band_name", help="band name")
 parser.add_argument("-l", "--label", dest="label_name", help="label_name")
 
-args = parser.parse_args()
-
+# args = parser.parse_args()
 # test_sub = args.test_subject
 # band_name = args.band_name
 # label_name = args.label_name
-# test_sub = "S10149"
-test_sub = "CC110069"
-band_name = "gamma"
+test_sub = "S10149"
+# test_sub = "CC110069"
 label_name = "postcentral-lh"
 
 if test_sub[:2] == "CC":
     sub_id = "sub-" + test_sub
-
 else:
     sub_id = test_sub
 
@@ -67,18 +62,18 @@ bb_truncation = 16
 job_count = 6
 
 # signal simulation parameters
-epoch_duration = 500.0  # seconds
+epoch_duration = 2.0  # seconds
 sig_duration = 60.0  # seconds
 
 freq_source = 10.0  # Hz
-amplitude = 1  # nanoamperemetre
+amplitude = 25  # nanoamperemetre
 print("amplitude is", amplitude, "nanoampmetres")
 
 location = "center"  # Use the center of the region as a seed.
 extent = 10.0  # Extent in mm of the region.
 
 # duration of whole simulation
-duration = 500.0
+duration = 200.0
 
 no_epochs = 100  # this is arbitrary and is not actually used
 
@@ -105,7 +100,7 @@ sim_results_dir = (
     "/Users/Jie/KTP_Project/Gary_Shared/20231130/test_results/" + sub_id + "/"
 )
 Path(sim_results_dir).mkdir(parents=True, exist_ok=True)
-sim_data_filename = f"{sim_results_dir}{sub_id}_sim_noise.fif"
+sim_data_filename = f"{sim_results_dir}{sub_id}_sim_noise_{int(freq_source)}Hz.fif"
 
 if test_sub[:2] == "CC":
     mri_subjects_path = camcam_mri_subjects_path
@@ -123,7 +118,6 @@ if test_sub[:2] == "CC":
     empty_room_file = (
         camcam_empty_room_path + sub_id + "/emptyroom_" + sub_id[4:] + ".fif"
     )
-    hdf5_file = f"{camcam_hdf5_path}{sub_id}/{band_name}/sub-{sub_id}_ses-rest_task-rest_proc-sss_{no_epochs}.hdf5"
 
 else:
     mri_subjects_path = innovision_mri_subjects_path
@@ -137,10 +131,8 @@ else:
     bad_channels_filename = (
         innovision_empty_room_path + sub_id + "/bad_chans.txt"
     )  # can not  find this file
-    hdf5_file = f"{innovision_hdf5_path}{sub_id}/{band_name}/resting_eyesclosed1_{no_epochs}.hdf5"
-
-
-# ======================================================================
+# %%
+#  ======================================================================
 # get area labels
 area_labels = core.get_canonical_area_list(mri_subjects_path)  # does not work
 # =========================================================================
@@ -156,7 +148,7 @@ sfreq = meg_info["sfreq"]
 tstep = 1 / sfreq
 times = np.arange(int(duration * sfreq), dtype=np.float64) * tstep
 
-
+# %%
 # ========================================================================
 # make the bem model
 # ========================================================================
@@ -164,6 +156,7 @@ times = np.arange(int(duration * sfreq), dtype=np.float64) * tstep
 surfs = mne.make_bem_model(
     sub_id, ico=bem_ico, conductivity=bem_conductivity, subjects_dir=mri_subjects_path
 )
+# %%
 
 bem = mne.make_bem_solution(surfs)
 # ========================================================================
@@ -178,7 +171,7 @@ src_space = mne.setup_source_space(
     n_jobs=job_count,
     verbose="error",
 )
-
+# %%
 # ========================================================================
 # create forward model
 # ========================================================================
@@ -197,16 +190,14 @@ fwd = mne.make_forward_solution(
 # this is the important forward lead field gain matrix
 G = fwd["sol"]["data"]
 
-# ========================================================================            ###############################################################################
-# get empty room information  only needed if we need empty room noise
+# %% get empty room information  only needed if we need empty room noise
 # ========================================================================
 
 # get emptyroom data. This is needed fis we need real noise
-
 room_info, room_data, n_sensors, temp = core.load_meg_info_and_data(
     empty_room_file, None
 )
-
+# %%
 # ========================================================================
 # set up simulation
 # ========================================================================
@@ -216,9 +207,6 @@ room_info, room_data, n_sensors, temp = core.load_meg_info_and_data(
 selected_label = mne.read_labels_from_annot(
     sub_id, regexp=label_name, subjects_dir=mri_subjects_path, verbose="error"
 )[0]
-
-# we have to have events -  even if here they are zero
-events = np.zeros((1, 3), dtype=np.int32)
 
 selected_label.values.fill(1.0)
 
@@ -231,9 +219,9 @@ com = selected_label.center_of_mass(
 )
 
 # for some bizarre reason I have to reread the label in mne
-selected_label = mne.read_labels_from_annot(
-    sub_id, regexp=label_name, subjects_dir=mri_subjects_path, verbose="error"
-)[0]
+# selected_label = mne.read_labels_from_annot(
+#     sub_id, regexp=label_name, subjects_dir=mri_subjects_path, verbose="error"
+# )[0]
 
 label = mne.label.select_sources(
     sub_id,
@@ -260,6 +248,7 @@ print("generating simulation")
 # allow_overlap=True, value_fun=lambda x: x)
 
 stc_gen = mne.simulation.SourceSimulator(src_space, tstep=tstep, duration=duration)
+events = mne.make_fixed_length_events(meg_data, id=1, duration=epoch_duration)
 stc_gen.add_data(label, signal[0, :], events)
 stc_data = stc_gen.get_stc()
 
@@ -295,11 +284,12 @@ cov = mne.make_ad_hoc_cov(sim_raw.info)
 mne.simulation.add_noise(sim_raw, cov, iir_filter=[0.2, -0.2, 0.04], random_state=1)
 
 cov = mne.compute_raw_covariance(
-    sim_raw, tmin=0, tmax=None, method="shrunk", rank="full"
+    sim_raw, tmin=0, tmax=None, method="ledoit_wolf", rank="info"
 )
 cov.plot(sim_raw.info, proj=True)
 
 ### now save data as fif file
 
-
 sim_raw.save(sim_data_filename, overwrite=True)
+
+# %%

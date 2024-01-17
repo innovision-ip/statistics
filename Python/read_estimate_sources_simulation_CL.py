@@ -1,27 +1,3 @@
-"""
-Created on Sun Nov 19 11:55:01 2023
-
-@author: gary
-
-programme to demonstrate how to read a meg file; how to analyse
-the data to obtain an estimate of source activity;
-
-__copyright__ = 'Copyright (C) 2020, Innovision IP Ltd'
-__license__ = Flimal - Innovision IP Limited
-
-(C) Innovision IP Limited 2020. All Rights Reserved.
-
-This confidential software and the copyright therein are the property of
-Innovision IP Limited and may not be used, copied or disclosed to any third
-party without the express written permission of Innovision IP Limited.
-
-
-
-__email__ = 'enquiries@innovision-ip.co.uk'
-__author__ = 'Gary Green, Mark Hymers
-"""
-
-
 # imports
 
 import argparse
@@ -47,15 +23,18 @@ parser.add_argument("-b", "--band", dest="band_name", help="band name")
 parser.add_argument(
     "-t", "--test", dest="sim_data", help="simulated data True or False"
 )
+parser.add_argument("-f", "--freq", dest="freq_source", help="source frequency")
 
-args = parser.parse_args()
-test_sub = args.test_subject
-band_name = args.band_name
-simulated = args.sim_data
+# args = parser.parse_args()
+# test_sub = args.test_subject
+# band_name = args.band_name
+# simulated = args.sim_data
+# freq_source = args.freq_source
 
-# test_sub = "CC110069"
-# band_name = "alpha"
-# simulated = False
+test_sub = "S10149"
+band_name = "alpha"
+simulated = "True"
+freq_source = 10.0
 
 if test_sub[:2] == "CC":
     sub_id = "sub-" + test_sub
@@ -121,7 +100,7 @@ else:
     )  # can not  find this file
 
 if simulated == "True":
-    meg_file = f"{simulated_data_path}{sub_id}_sim_noise.fif"
+    meg_file = f"{simulated_data_path}{sub_id}_sim_noise_{int(freq_source)}Hz.fif"
 
 ##some defs
 
@@ -314,7 +293,9 @@ vertices = [fwd_solution["src"][0]["vertno"]]
 
 # save the relevant data into an HDF5 file
 if simulated == "False":
-    with h5.File(f"{results_dir}{sub_id}_{band_name}_{no_epochs}.hdf5", "w") as fout:
+    with h5.File(
+        f"{results_dir}{sub_id}_{band_name}_{no_epochs}_{int(freq_source)}Hz.hdf5", "w"
+    ) as fout:
         grp_subject = fout.create_group(sub_id)
 
         grp_results = grp_subject.create_group("Results")
@@ -341,7 +322,8 @@ if simulated == "False":
         )
 else:
     with h5.File(
-        f"{simulated_data_path}{sub_id}_{band_name}_{no_epochs}.hdf5", "w"
+        f"{simulated_data_path}{sub_id}_{band_name}_{no_epochs}_{int(freq_source)}Hz.hdf5",
+        "w",
     ) as fout:
         grp_subject = fout.create_group(sub_id)
 
@@ -395,15 +377,31 @@ img_fsaverage = morph.apply(stc, mri_resolution=False, output="nifti1")
 
 
 nib.nifti1.save(
-    img_stat, filename=f"{results_dir}{sub_id}_{band_name}_stat_image_{no_epochs}"
+    img_stat,
+    filename=f"{results_dir}{sub_id}_{band_name}_stat_image_{no_epochs}_{int(freq_source)}Hz",
 )
 nib.nifti1.save(
-    img_map, filename=f"{results_dir}{sub_id}_{band_name}_map_image_{no_epochs}"
+    img_map,
+    filename=f"{results_dir}{sub_id}_{band_name}_map_image_{no_epochs}_{int(freq_source)}Hz",
 )
 nib.nifti1.save(
-    img_fsaverage, filename=f"{results_dir}{sub_id}_{band_name}_fs_image_{no_epochs}"
+    img_fsaverage,
+    filename=f"{results_dir}{sub_id}_{band_name}_fs_image_{no_epochs}_{int(freq_source)}Hz",
 )
-
-plotting.plot_stat_map(img_fsaverage, vmin=0, vmax=9.6)
-plt.savefig(f"{results_dir}{sub_id}_{band_name}_fs_image_{no_epochs}.png")
+rescaled_img, coords, z_max = core.rescale_and_find_cut_coords(
+    img_fsaverage, scale_factor=1, threshold_offset=0.01
+)
+vmax = 1.6
+threshold = 1
+plotting.plot_stat_map(
+    rescaled_img,
+    cut_coords=coords,
+    vmax=vmax,
+    threshold=threshold,
+    cmap="jet",
+    title=f"Empirical, Max Z: {z_max:.2f}",
+)
+plt.savefig(
+    f"{results_dir}{sub_id}_{band_name}_fs_image_{no_epochs}_{int(freq_source)}Hz.png"
+)
 # plotting.show()
