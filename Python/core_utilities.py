@@ -20,7 +20,7 @@ party without the express written permission of Innovision IP Limited.
 
 
 __email__ = 'enquiries@innovision-ip.co.uk'
-__author__ = 'Gary Green, Mark Hymers
+__author__ = 'Gary Green, Mark Hymers, Jie Li'
 """
 
 
@@ -35,6 +35,9 @@ import numpy as np
 from joblib import Parallel, delayed, wrap_non_picklable_objects
 from mne.beamformer import apply_lcmv_cov
 from nilearn import plotting
+from scipy.optimize import Bounds, minimize
+from scipy.stats import anderson, norm
+from skewt_scipy.skewt import skewt
 from sklearn.decomposition import PCA
 
 # should not need editing below here
@@ -651,3 +654,87 @@ def rescale_and_find_cut_coords(img, scale_factor=1e2, threshold_offset=0.5):
     )
 
     return rescaled_img, coords, z_max
+
+
+def general_gof(data):
+    """add genearal goodness of fit for skew-t distribution, see Chen and Balakrishnan (1995).
+
+    Parameters
+    ----------
+    data : array-like
+        the data
+
+    Returns
+    -------
+    dict
+        dictionary for 5 different significance levels: 15%, 10%, 5%, 2.5%, and 1%, `True` means the null hypothesis is not rejected, `False` means the null hypothesis is rejected.
+    """
+    a, df, loc, scale = skewt_fit(data)
+    x = sorted(data)
+    p = skewt.cdf(x, a=a, df=df, loc=loc, scale=scale)
+    y = norm.ppf(p)
+    # Remove NaN values
+    y = y[~np.isnan(y)]
+    # Remove 0 and 1
+    y = y[y != 0]
+    y = y[y != 1]
+    result = anderson(y)
+    # Compare the test statistic to the critical values
+    test_results = result.statistic < result.critical_values
+
+    # Return the results of the hypothesis test at the specified significance levels
+    return dict(zip(result.significance_level / 100, test_results)), a, df, loc, scale
+
+
+def st_logli(dp, y):
+    """the negative log-likelihood function of skew-t distribution
+
+    Parameters
+    ----------
+    dp : array | list
+        the direct parameters of the skew-t distribution in order: alpha, degrees of freedom, location and scale.
+    y : array
+        the data
+
+    Returns
+    -------
+    float
+        the negative log-likelihood function
+    """
+    a, df, loc, scale = dp[0], dp[1], dp[2], dp[3]
+    if scale <= 0 or df <= 0:
+        return np.nan
+    else:
+        logL = np.sum(skewt.logpdf(y, a=a, df=df, loc=loc, scale=scale))
+    return -2 * logL
+
+
+def skewt_fit(data, init_params=np.array([1, 1, 1, 1])):
+    """This function fit the parameters of skew-t distribution by using the algorithm `L-BFGS-B`
+
+    Parameters
+    ----------
+    data : 1D array
+        the sample data
+    init_params : list, optional
+        the initial values of direct parameters, by default np.array([1, 1, 1, 1])
+
+    Returns
+    -------
+    array : np.array
+        the estimation of direct parameters: location, scale, shape, and degree of freedom.
+
+    Raises
+    ------
+    ValueError
+        the message from minimizer
+    """
+    bounds = Bounds([-np.inf, 1e-4, -np.inf, 1e-4], [np.inf, np.inf, np.inf, np.inf])
+    res = minimize(
+        fun=st_logli, x0=init_params, args=(data,), bounds=bounds, method="L-BFGS-B"
+    )
+    if res.success:
+        fitted_params = res.x
+        return fitted_params
+    else:
+        raise ValueError(res.message)
