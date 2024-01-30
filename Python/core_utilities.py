@@ -28,12 +28,11 @@ import cvxpy as cp
 import h5py
 
 # import multiprocessing # does not work on Mac OS
-import joblib
 import mne
+import mne.beamformer as bf
 import nibabel as nib
 import numpy as np
-from joblib import Parallel, delayed, wrap_non_picklable_objects
-from mne.beamformer import apply_lcmv_cov
+from joblib import Parallel, delayed
 from nilearn import plotting
 from scipy.optimize import Bounds, minimize
 from scipy.stats import anderson, norm
@@ -54,7 +53,7 @@ def read_analysis_results(subject, results_file):
     Returns:
         An `AnalysisResultsDC`."""
     with h5py.File(results_file, "r") as fin:
-        gain_matrix = [fin[subject]["Results"]["Gain_matrix"][()][0]]
+        gain_matrix = fin[subject]["Results"]["Gain_matrix"][()]
         vertices = [fin[subject]["Results"]["Vertices"][()][0]][0]
         source_map = np.array(fin[subject]["Results"]["Source_map"][()])
         epoch_list = fin[subject]["Results"]["Epoch_list"][()]
@@ -246,7 +245,7 @@ def compute_time_series(G, projection_map, B_epoch, n_sources, alpha_level=0.05)
     """
 
     Ja = np.ones([np.shape(B_epoch)[0], 1])
-    tempr = np.zeros([1, 2 * n_sources])
+    tempr = np.zeros([1, np.shape(projection_map)[0]])
     tempr[0, :] = projection_map
     JaA = np.matmul(Ja, tempr)
 
@@ -269,10 +268,11 @@ def compute_time_series(G, projection_map, B_epoch, n_sources, alpha_level=0.05)
     # huang equation 13
     time_series = np.matmul(GhashplusA, B_epoch)
 
+    residual = B_epoch - G @ time_series
     # remove mean from each time_series
 
-    result = time_series - np.mean(time_series, axis=1, keepdims=True)
-    return result
+    # result = time_series - np.mean(time_series, axis=1, keepdims=True)
+    return time_series, residual
 
 
 def best_orientation(time_series, n_vertices):
@@ -327,9 +327,11 @@ def run_single_timeseries_extraction_jie(epoch_data, gain_matrix, vertices, sour
     # no_labels = len(area_labels)
     no_vertices = len(vertices)
     B_epoch = np.squeeze(epoch_data)
-    timeseries = compute_time_series(gain_matrix, source_map, B_epoch, no_vertices)
+    timeseries, residual = compute_time_series(
+        gain_matrix, source_map, B_epoch, no_vertices
+    )
 
-    return timeseries
+    return timeseries, residual
 
 
 def calc_cov(raw):
@@ -558,8 +560,8 @@ def l1_cvxpy_l1(A, b, c):
         found.
     """
     result = cp.Variable(A.shape[1])
-    # equation 12 ||w^T*x|| s.t. A*x = b
-    prob = cp.Problem(cp.Minimize(cp.norm(c.T @ result, 1)), [A @ result == b])
+    # Huang (2014) eq.(7) w^T*|x| s.t. A*x = b
+    prob = cp.Problem(cp.Minimize(c.T @ cp.abs(result)), [A @ result == b])
     prob.solve(solver=cp.ECOS, verbose=False)
 
     return result.value
@@ -629,8 +631,8 @@ def whiten(covariance_matrix, input_matrix):
 
 
 def gen_lcmv(active_cov, baseline_cov, filters):
-    stc_base = apply_lcmv_cov(baseline_cov, filters)
-    stc_act = apply_lcmv_cov(active_cov, filters)
+    stc_base = bf.apply_lcmv_cov(baseline_cov, filters)
+    stc_act = bf.apply_lcmv_cov(active_cov, filters)
     stc_act /= stc_base
     return stc_act
 
@@ -669,6 +671,7 @@ def general_gof(data):
     dict
         dictionary for 5 different significance levels: 15%, 10%, 5%, 2.5%, and 1%, `True` means the null hypothesis is not rejected, `False` means the null hypothesis is rejected.
     """
+    data = data[np.isfinite(data)]
     a, df, loc, scale = skewt_fit(data)
     x = sorted(data)
     p = skewt.cdf(x, a=a, df=df, loc=loc, scale=scale)
