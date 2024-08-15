@@ -2,9 +2,9 @@
 Author      : Jie Li, Innovision IP Ltd., and School of Mathematics Statistics
 				and Actuarial Science, University of Kent.
 Date        : 2024-06-01 21:22:36
-Last Edited : 2024-07-16 07:57:29
+Last Edited : 2024-08-15 12:23:41
 Last Author : Jie Li
-File Path   : /DCM/Python/dcm/dcm_estimate_test.py
+File Path   : /undefined/Users/Jie/Documents/dcm_IP/dcm/dcm_estimate_test.py
 Description : This script is used to test the DCM estimation algorithm based on the .mat file in ~/attention/GLM/DCM_mod_bwd.mat
 
 

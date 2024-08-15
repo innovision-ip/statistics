@@ -2,9 +2,9 @@
 Author      : Jie Li, Innovision IP Ltd., and School of Mathematics Statistics
 				and Actuarial Science, University of Kent.
 Date        : 2024-05-28 21:14:14
-Last Edited : 2024-07-11 11:36:33
+Last Edited : 2024-08-15 12:22:38
 Last Author : Jie Li
-File Path   : /DCM/Python/dcm/utils.py
+File Path   : /undefined/Users/Jie/Documents/dcm_IP/dcm/utils.py
 Description :
 
 
@@ -23,7 +23,6 @@ import time
 
 import numpy as np
 import scipy.io as sio
-from defaults import defaults
 from numpy import cos, sin, sqrt
 from numpy.linalg import LinAlgError, cholesky, svd
 from scipy.linalg import expm, inv, toeplitz
@@ -31,6 +30,8 @@ from scipy.signal import detrend
 from scipy.sparse import issparse
 from scipy.special import gamma
 from scipy.stats import norm
+
+from defaults import defaults
 
 
 def vectorise_object(*x):
@@ -224,7 +225,7 @@ def concatenate_dod_lol(x):
     >>> spm_cat(x1)
     """
     # rest of the function...
-    x = copy.deepcopy(x)  # create a deep copy of x
+    # x = copy.deepcopy(x)  # create a deep copy of x
     # check x is not already a matrix
     if isinstance(x, np.ndarray):
         return x
@@ -486,7 +487,7 @@ def truncate_svd(X, tol=1e-6):
         S = np.diag(s)
         u = np.eye(m, n)
         v = np.eye(m, n)
-        j = np.argsort(-s)
+        j = np.argsort(-s, kind="stable")
         S = S[j, :][:, j]
         v = v[:, j]
         u = u[:, j]
@@ -1317,6 +1318,8 @@ def get_inv(A, TOL=None):
             [ 1.5, -0.5]])
 
     """
+    if np.isscalar(A):
+        A = np.eye(1, 1) * A
     # Check if A is empty
     if A.size == 0:
         return np.empty((A.shape[1], A.shape[0]))
@@ -1331,6 +1334,9 @@ def get_inv(A, TOL=None):
 
     # Compute the inverse
     X = np.linalg.inv(A + np.eye(m, n) * TOL)
+
+    if X.size == 1:
+        X = X.item()
 
     return X
 
@@ -1586,6 +1592,8 @@ def get_logdet(C):
     considered to be the product of the positive singular values.
     """
     # Remove null variances
+    if np.isscalar(C):
+        return np.log(C) if C > 0 else np.nan
     i = np.diag(C) != 0
     C = C[i][:, i]
     i, j = np.nonzero(C)
@@ -3246,7 +3254,6 @@ def get_DEM_eval_diff(x, v, qp, M, bilinear=True):
                 dg["dvp"][i][j][i][i] = dgdvp[j]
                 df["dxp"][i][j][i][i] = dfdxp[j]
                 df["dvp"][i][j][i][i] = dfdvp[j]
-
 
     # Concatenate hierarchical forms
     D = {
